@@ -1,0 +1,11 @@
+# Stored Data
+# ===========
+tmp/
+
+# Python
+# ============
+venv/
+
+# JetBrains
+# ============
+.idea/
