@@ -32,6 +32,30 @@ if __name__ == '__main__':
         kff_state_trends.save()
     kff_state_trends_end_time = time.perf_counter()
 
+    utils.log('. Starting KFF cases by race...')
+    kff_cases_by_race_start_time = time.perf_counter()
+    kff_cases_by_race = kff.CasesByRace()
+    kff_cases_by_race.fetch()
+    if kff_cases_by_race.has_data():
+        kff_cases_by_race.save()
+    kff_cases_by_race_end_time = time.perf_counter()
+
+    utils.log('. Starting KFF deaths by race...')
+    kff_deaths_by_race_start_time = time.perf_counter()
+    kff_deaths_by_race = kff.DeathsByRace()
+    kff_deaths_by_race.fetch()
+    if kff_deaths_by_race.has_data():
+        kff_deaths_by_race.save()
+    kff_deaths_by_race_end_time = time.perf_counter()
+
+    utils.log('. Starting KFF vaccinations by race...')
+    kff_vaccinations_by_race_start_time = time.perf_counter()
+    kff_vaccinations_by_race = kff.VaccinationsByRace()
+    kff_vaccinations_by_race.fetch()
+    if kff_vaccinations_by_race.has_data():
+        kff_vaccinations_by_race.save()
+    kff_vaccinations_by_race_end_time = time.perf_counter()
+
     utils.log('. WaPo Police Shootings....')
     wapo_police_shootings_start_time = time.perf_counter()
     wapo_police_shootings = wapo.PoliceShootings()
@@ -76,6 +100,18 @@ if __name__ == '__main__':
     utils.log(
         'KFF State Trends finished in {} seconds'
         .format(math.ceil(kff_state_trends_end_time - kff_state_trends_start_time))
+    )
+    utils.log(
+        'KFF Cases by Race finished in {} seconds'
+        .format(math.ceil(kff_cases_by_race_end_time - kff_cases_by_race_start_time))
+    )
+    utils.log(
+        'KFF Deaths by Race finished in {} seconds'
+        .format(math.ceil(kff_deaths_by_race_end_time - kff_deaths_by_race_start_time))
+    )
+    utils.log(
+        'KFF Vaccinations by Race finished in {} seconds'
+        .format(math.ceil(kff_vaccinations_by_race_end_time - kff_vaccinations_by_race_start_time))
     )
     utils.log(
          'Wapo Police shootings finished in {} seconds'
