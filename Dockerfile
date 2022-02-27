@@ -1,6 +1,6 @@
 FROM python:3.9.10
-RUN pip install -r requirements.txt
 COPY . /home
+RUN pip install -r requirements.txt
 
 WORKDIR /home
 
