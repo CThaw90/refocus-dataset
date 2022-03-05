@@ -68,7 +68,7 @@ def int_or_null(value):
     return value
 
 
-def set_age(value):
+def get_age(value):
     return int_or_null(value['age'])
 
 
@@ -95,7 +95,7 @@ class PoliceShootings:
             {'field': 'name'},
             {'field': 'manner_of_death'},
             {'field': 'armed'},
-            {'field': 'age', 'data': int_or_null},
+            {'field': 'age', 'data': get_age},
             {'field': 'gender'},
             {'field': 'race'},
             {'field': 'city'},
@@ -130,7 +130,6 @@ class PoliceShootings:
 
             records = list(self.raw_data)
             record_count = len(records)
-            progress_threshold = record_count // 100
             records_processed = 0
             record_cache = {}
 
@@ -166,7 +165,7 @@ class PoliceShootings:
 
                 records_processed += 1
                 utils.log("\rProgress: {}% - Records processed: {} of {}"
-                          .format(records_processed // progress_threshold, records_processed, record_count),
+                          .format(utils.percentage(records_processed, record_count), records_processed, record_count),
                           newline=records_processed == record_count)
 
             mysql_database.commit()

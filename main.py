@@ -21,7 +21,7 @@ if __name__ == '__main__':
     cdc_hospitalizations = cdc.Hospitalizations()
     cdc_hospitalizations.fetch()
     if cdc_hospitalizations.has_data():
-         cdc_hospitalizations.save()
+        cdc_hospitalizations.save()
     cdc_hospitalizations_end_time = time.perf_counter()
 
     utils.log('. Starting KFF state trends....')
