@@ -24,7 +24,7 @@ def ensure_int(value):
 
 
 def bool_to_int(value):
-    return 1 if value else 0
+    return 0 if value is None or value is False or value.lower() in (None, 'no', 'false', '') else 1
 
 
 def ensure_iso_date(value):

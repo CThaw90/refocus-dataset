@@ -53,6 +53,18 @@ def get_county(record):
     return county_name
 
 
+def get_signs_of_mental_illness(data):
+    return utils.bool_to_int(data['signs_of_mental_illness'])
+
+
+def get_body_camera(data):
+    return utils.bool_to_int(data['body_camera'])
+
+
+def get_is_geocoding_exact(data):
+    return utils.bool_to_int(data['is_geocoding_exact'])
+
+
 def get_state(record):
     return constants.state_abbrev_map[record['state']]\
         if constants.state_abbrev_map.__contains__(record['state']) else 'N/A'
@@ -100,13 +112,13 @@ class PoliceShootings:
             {'field': 'race'},
             {'field': 'city'},
             {'field': 'state', 'data': get_state},
-            {'field': 'signs_of_mental_illness', 'data': utils.bool_to_int},
+            {'field': 'signs_of_mental_illness', 'data': get_signs_of_mental_illness},
             {'field': 'threat_level'},
             {'field': 'flee'},
-            {'field': 'body_camera', 'data': utils.bool_to_int},
+            {'field': 'body_camera', 'data': get_body_camera},
             {'field': 'longitude', 'data': ensure_longitude_float},
             {'field': 'latitude', 'data': ensure_latitude_float},
-            {'field': 'is_geocoding_exact', 'data': utils.bool_to_int},
+            {'field': 'is_geocoding_exact', 'data': get_is_geocoding_exact},
             {'field': 'id', 'column': 'county', 'data': get_county}
         ]
 
@@ -164,7 +176,7 @@ class PoliceShootings:
                 mysql_database.insert(self.table_name, columns, values)
 
                 records_processed += 1
-                utils.log("\rProgress: {}% - Records processed: {} of {}"
+                utils.log("\rProgress: {} - Records processed: {} of {}"
                           .format(utils.percentage(records_processed, record_count), records_processed, record_count),
                           newline=records_processed == record_count)
 
