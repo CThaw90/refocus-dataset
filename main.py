@@ -3,130 +3,98 @@ from resource import apha, cdc, kff, wapo, elab, census, google
 
 import math
 import time
+import sys
+import re
+
+
+def populate_module_set(values, module_set):
+    for value in values:
+        module_set.add(value)
+
+
+def validate_module_list(module_list, module_set):
+    for m in module_list:
+        if m not in module_set:
+            print('{} is not a module within the module set'.format(m))
+            sys.exit(1)
+
+
 
 if __name__ == '__main__':
 
+    include_modules_arg_pattern = re.compile('^--include-modules.*')
+    exclude_modules_arg_pattern = re.compile('^--exclude-modules.*')
+    joined_arg_pattern = re.compile('.*-modules=(.*)')
+
+    list_modules_flag = False
+    include_modules_flag = False
+    exclude_modules_flag = False
+
+    included_modules_set = set()
+    excluded_modules_set = set()
+    all_modules_set = set()
+
+    modules = [
+        {'id': 'census_county_geo_codes', 'module': census.CountyGeoCodes},
+        {'id': 'cdc_hospitalizations', 'module': cdc.Hospitalizations},
+        {'id': 'kff_state_trends', 'module': kff.StateTrends},
+        {'id': 'kff_cases_by_race', 'module': kff.CasesByRace},
+        {'id': 'kff_deaths_by_race', 'module': kff.DeathsByRace},
+        {'id': 'kff_vaccinations_by_race', 'module': kff.VaccinationsByRace},
+        {'id': 'wapo_police_shootings', 'module': wapo.PoliceShootings},
+        {'id': 'apha_map_racism_declarations', 'module': apha.RacismDeclarations},
+        {'id': 'elab_weekly_evictions', 'module': elab.WeeklyEvictions},
+        {'id': 'google_mobility_report', 'module': google.MobilityReport}
+    ]
+
+    populate_module_set(utils.array_map_by_key(modules, 'id'), all_modules_set)
+
+    for arg in sys.argv:
+        if include_modules_arg_pattern.match(arg) is not None:
+            match_result = joined_arg_pattern.match(arg)
+            if match_result is not None:
+                module_argument_list = match_result.groups()[0].split(',')
+                validate_module_list(module_argument_list, all_modules_set)
+                populate_module_set(module_argument_list, included_modules_set)
+            else:
+                include_modules_flag = True
+        elif exclude_modules_arg_pattern.match(arg) is not None:
+            match_result = joined_arg_pattern.match(arg)
+            if match_result is not None:
+                module_argument_list = match_result.groups()[0].split(',')
+                validate_module_list(module_argument_list, all_modules_set)
+                populate_module_set(module_argument_list, excluded_modules_set)
+            else:
+                exclude_modules_flag = True
+        elif include_modules_flag:
+            module_argument_list = arg.split(',')
+            validate_module_list(module_argument_list, all_modules_set)
+            populate_module_set(module_argument_list, included_modules_set)
+            include_modules_flag = False
+        elif exclude_modules_flag:
+            module_argument_list = arg.split(',')
+            validate_module_list(module_argument_list, all_modules_set)
+            populate_module_set(module_argument_list, excluded_modules_set)
+            exclude_modules_flag = False
+
     start_time = time.perf_counter()
+    time_perf_counters = []
 
-    census_county_geo_codes_start_time = time.perf_counter()
-    census_county_geo_codes = census.CountyGeoCodes()
-    utils.log(". Starting Census county Geo Codes....")
-    census_county_geo_codes.fetch()
-    if census_county_geo_codes.has_data():
-        census_county_geo_codes.save()
-    census_county_geo_codes_end_time = time.perf_counter()
+    for module in modules:
+        if (len(included_modules_set) == 0 or module['id'] in included_modules_set) and \
+                (len(excluded_modules_set) == 0 or module['id'] not in excluded_modules_set):
+            utils.log('Starting {}...'.format(module['id']))
+            module_start_time = time.perf_counter()
+            instantiated_module = module['module']()
+            instantiated_module.fetch()
+            if instantiated_module.has_data():
+                instantiated_module.save()
+            module_end_time = time.perf_counter()
+            time_perf_counters.append({'id': module['id'], 'time': math.ceil(module_end_time - module_start_time)})
 
-    cdc_hospitalizations_start_time = time.perf_counter()
-    utils.log('. Starting CDC Hospitalizations....')
-    cdc_hospitalizations = cdc.Hospitalizations()
-    cdc_hospitalizations.fetch()
-    if cdc_hospitalizations.has_data():
-        cdc_hospitalizations.save()
-    cdc_hospitalizations_end_time = time.perf_counter()
+    for counter in time_perf_counters:
+        utils.log('{} finished in {} seconds'.format(counter['id'], counter['time']))
 
-    utils.log('. Starting KFF state trends....')
-    kff_state_trends_start_time = time.perf_counter()
-    kff_state_trends = kff.StateTrends()
-    kff_state_trends.fetch()
-    if kff_state_trends.has_data():
-        kff_state_trends.save()
-    kff_state_trends_end_time = time.perf_counter()
-
-    utils.log('. Starting KFF cases by race...')
-    kff_cases_by_race_start_time = time.perf_counter()
-    kff_cases_by_race = kff.CasesByRace()
-    kff_cases_by_race.fetch()
-    if kff_cases_by_race.has_data():
-        kff_cases_by_race.save()
-    kff_cases_by_race_end_time = time.perf_counter()
-
-    utils.log('. Starting KFF deaths by race...')
-    kff_deaths_by_race_start_time = time.perf_counter()
-    kff_deaths_by_race = kff.DeathsByRace()
-    kff_deaths_by_race.fetch()
-    if kff_deaths_by_race.has_data():
-        kff_deaths_by_race.save()
-    kff_deaths_by_race_end_time = time.perf_counter()
-
-    utils.log('. Starting KFF vaccinations by race...')
-    kff_vaccinations_by_race_start_time = time.perf_counter()
-    kff_vaccinations_by_race = kff.VaccinationsByRace()
-    kff_vaccinations_by_race.fetch()
-    if kff_vaccinations_by_race.has_data():
-        kff_vaccinations_by_race.save()
-    kff_vaccinations_by_race_end_time = time.perf_counter()
-
-    utils.log('. WaPo Police Shootings....')
-    wapo_police_shootings_start_time = time.perf_counter()
-    wapo_police_shootings = wapo.PoliceShootings()
-    wapo_police_shootings.fetch()
-    if wapo_police_shootings.has_data():
-        wapo_police_shootings.save()
-    wapo_police_shootings_end_time = time.perf_counter()
-
-    utils.log('. Apha Map racism declarations....')
-    apha_map_racism_declarations_start_time = time.perf_counter()
-    apha_map_racism_declarations = apha.RacismDeclarations()
-    apha_map_racism_declarations.fetch()
-    if apha_map_racism_declarations.has_data():
-        apha_map_racism_declarations.save()
-    apha_map_racism_declarations_end_time = time.perf_counter()
-
-    utils.log('. ELab Weekly Evictions....')
-    elab_weekly_evictions_start_time = time.perf_counter()
-    elab_weekly_evictions = elab.WeeklyEvictions()
-    elab_weekly_evictions.fetch()
-    if elab_weekly_evictions.has_data():
-        elab_weekly_evictions.save()
-    elab_weekly_evictions_end_time = time.perf_counter()
-
-    utils.log('. Google Mobility data...')
-    google_mobility_report_start_time = time.perf_counter()
-    google_mobility_report = google.MobilityReport()
-    google_mobility_report.fetch()
-    if google_mobility_report.has_data():
-        google_mobility_report.save()
-    google_mobility_report_end_time = time.perf_counter()
     end_time = time.perf_counter()
 
-    utils.log(
-        'Census county geo codes finished in {} seconds'
-        .format(math.ceil(census_county_geo_codes_end_time - census_county_geo_codes_start_time))
-    )
-    utils.log(
-        'CDC Hospitalizations finished in {} seconds'
-        .format(math.ceil(cdc_hospitalizations_end_time - cdc_hospitalizations_start_time))
-    )
-    utils.log(
-        'KFF State Trends finished in {} seconds'
-        .format(math.ceil(kff_state_trends_end_time - kff_state_trends_start_time))
-    )
-    utils.log(
-        'KFF Cases by Race finished in {} seconds'
-        .format(math.ceil(kff_cases_by_race_end_time - kff_cases_by_race_start_time))
-    )
-    utils.log(
-        'KFF Deaths by Race finished in {} seconds'
-        .format(math.ceil(kff_deaths_by_race_end_time - kff_deaths_by_race_start_time))
-    )
-    utils.log(
-        'KFF Vaccinations by Race finished in {} seconds'
-        .format(math.ceil(kff_vaccinations_by_race_end_time - kff_vaccinations_by_race_start_time))
-    )
-    utils.log(
-         'Wapo Police shootings finished in {} seconds'
-         .format(math.ceil(wapo_police_shootings_end_time - wapo_police_shootings_start_time))
-    )
-    utils.log(
-        'Apha Map racism declarations finished in {} seconds'
-        .format(math.ceil(apha_map_racism_declarations_end_time - apha_map_racism_declarations_start_time))
-    )
-    utils.log(
-        'Elab Weekly Evictions finished in {} seconds'
-        .format(math.ceil(elab_weekly_evictions_end_time - elab_weekly_evictions_start_time))
-    )
-    utils.log(
-        'Google Mobility report finished in {} seconds'
-        .format(math.ceil(google_mobility_report_end_time - google_mobility_report_start_time))
-    )
     utils.log('Application finished in {} seconds'.format(math.ceil(end_time - start_time)))

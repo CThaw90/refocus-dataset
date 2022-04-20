@@ -9,3 +9,7 @@ venv/
 # JetBrains
 # ============
 .idea/
+
+# Scripts
+# ============
+scripts/
