@@ -19,7 +19,6 @@ def validate_module_list(module_list, module_set):
             sys.exit(1)
 
 
-
 if __name__ == '__main__':
 
     include_modules_arg_pattern = re.compile('^--include-modules.*')
@@ -37,6 +36,7 @@ if __name__ == '__main__':
     modules = [
         {'id': 'census_county_geo_codes', 'module': census.CountyGeoCodes},
         {'id': 'cdc_hospitalizations', 'module': cdc.Hospitalizations},
+        {'id': 'cdc_state_trends', 'module': cdc.StateTrends},
         {'id': 'kff_state_trends', 'module': kff.StateTrends},
         {'id': 'kff_cases_by_race', 'module': kff.CasesByRace},
         {'id': 'kff_deaths_by_race', 'module': kff.DeathsByRace},
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     for module in modules:
         if (len(included_modules_set) == 0 or module['id'] in included_modules_set) and \
                 (len(excluded_modules_set) == 0 or module['id'] not in excluded_modules_set):
-            utils.log('Starting {}...'.format(module['id']))
+            utils.log('Starting module {}...'.format(module['id']))
             module_start_time = time.perf_counter()
             instantiated_module = module['module']()
             instantiated_module.fetch()
