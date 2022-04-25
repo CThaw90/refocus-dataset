@@ -1,13 +1,17 @@
 from common import constants, utils
+from resource import census
 from data import database
 
 import datetime
 import requests
 import types
 import json
+import csv
+import io
 
 SAT_WEEKDAY_INDEX = 5
 STATE_TREND_URL = 'https://covid.cdc.gov/covid-data-tracker/COVIDData/getAjaxData?id=us_trend_by_{}'
+VACCINE_TREND_URL = 'https://data.cdc.gov/api/views/unsk-b7fc/rows.csv?accessType=DOWNLOAD'
 URL = 'https://gis.cdc.gov/grasp/covid19_3_api/PostPhase03DataTool'
 HEADERS = {'Content-Type': 'application/json'}
 DATA = {'appversion': 'Public', 'key': 'datadownload', 'injson': []}
@@ -198,6 +202,10 @@ def ensure_iso_date(*values):
     return utils.ensure_iso_date(values[0][values[1]])
 
 
+def skip_record(record):
+    return record['state'] == 'Guam' or record['state'] == 'Virgin Islands'
+
+
 def nil(*value):
     return 0
 
@@ -206,6 +214,8 @@ class StateTrends:
 
     def __init__(self):
         self.table_name = 'state_trend_data'
+        self.population_estimates = None
+        self.vaccines_state_trend = None
         self.raw_data = None
         self.fields = [
             {'field': 'state'},
@@ -220,14 +230,13 @@ class StateTrends:
             {'field': 'new_death', 'column': 'deaths_7_day_mean', 'data': get_new_deaths_seven_day_avg},
             {'field': 'new_test_results_reported', 'column': 'tests_7_day_mean', 'data': get_new_tests_seven_day_avg},
             {'field': 'new_test_results_reported', 'column': 'positivity_rate', 'data': get_positivity_rate},
-            # Unsupported columns, will need to retrieve population data for this
-            {'field': 'seven_day_cum_new_cases_per_100k', 'column': 'cases_per_million', 'data': nil},
-            {'field': 'seven_day_cum_new_deaths_per_100k', 'column': 'deaths_per_million', 'data': nil},
-            {'field': 'new_test_results_reported', 'column': 'tests_per_million', 'data': nil},
+            {'field': 'New_case', 'column': 'cases_per_million', 'data': self.get_cases_per_million},
+            {'field': 'new_death', 'column': 'deaths_per_million', 'data': self.get_deaths_per_million},
+            {'field': 'new_test_results_reported', 'column': 'tests_per_million', 'data': self.get_tests_per_million},
 
+            # No longer tracking these data sets because they aren't used in the dashboard and don't make any sense
             {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_mean', 'data': nil},
-            # No longer tracking this data set because it doesn't make any sense
-            # {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_plus_mean', 'data': nil},
+            {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_plus_mean', 'data': nil},
             {'field': 'tot_cases', 'column': 'pct_change_weekly_cases_7', 'data': nil},
             {'field': 'tot_cases', 'column': 'pct_change_weekly_cases_14', 'data': nil},
             {'field': 'tot_deaths', 'column': 'pct_change_weekly_deaths_7', 'data': nil},
@@ -237,13 +246,56 @@ class StateTrends:
             {'field': 'percent_positive_7_day', 'column': 'pct_change_positivity_rate_7', 'data': nil},
             {'field': 'percent_positive_7_day', 'column': 'pct_change_positivity_rate_14', 'data': nil},
 
-            {'field': 'tot_cases', 'column': 'population', 'data': nil},
-            {'field': 'Administered_Cumulative', 'column': 'vaccines_distributed', 'data': nil},
-            {'field': 'Administered_Cumulative', 'column': 'vaccines_administered', 'data': nil},
-            {'field': 'Admin_Dose_1_Day_Rolling_Average', 'column': 'vaccines_one_dose', 'data': nil},
-            {'field': 'Series_Complete_Day_Rolling_Average', 'column': 'vaccines_two_dose', 'data': nil},
+            {'field': 'tot_cases', 'column': 'population', 'data': self.get_population},
+            {'field': 'state', 'column': 'vaccines_distributed', 'data': self.get_vaccines_distributed},
+            {'field': 'state', 'column': 'vaccines_administered', 'data': self.get_vaccines_administered},
+            {'field': 'state', 'column': 'vaccines_one_dose', 'data': self.get_vaccines_administered_one_dose},
+            {'field': 'state', 'column': 'vaccines_two_dose', 'data': self.get_vaccines_administered_two_dose},
             {'field': 'tot_cases', 'column': 'hotspot', 'data': nil}
         ]
+
+    def get_vaccine_data_by_key(self, record, state, vaccine_key):
+        iso_date = utils.ensure_iso_date(record['date'])
+        state_abbrev = constants.state_abbrev_map[state]
+        return self.vaccines_state_trend[iso_date][state_abbrev][vaccine_key] \
+            if iso_date in self.vaccines_state_trend and state_abbrev in self.vaccines_state_trend[iso_date] else 0
+
+    def get_vaccines_distributed(self, record, record_key, cache):
+        return self.get_vaccine_data_by_key(record, record[record_key], 'Distributed')
+
+    def get_vaccines_administered(self, record, record_key, cache):
+        return self.get_vaccine_data_by_key(record, record[record_key], 'Administered')
+
+    def get_vaccines_administered_one_dose(self, record, record_key, cache):
+        return self.get_vaccine_data_by_key(record, record[record_key], 'Administered_Dose1')
+
+    def get_vaccines_administered_two_dose(self, record, record_key, cache):
+        return self.get_vaccine_data_by_key(record, record[record_key], 'Administered_Dose2')
+
+    def get_population(self, *values):
+        record = values[0]
+        iso_date = utils.ensure_iso_date(record['date'])
+        return self.population_estimates[iso_date][record['state']]
+
+    def get_value_per_million(self, record, record_key):
+        one_million = 1000000
+        iso_date = utils.ensure_iso_date(record['date'])
+        state_population = self.population_estimates[iso_date][record['state']]
+        new_value_per_million = 0
+        if record[record_key] is not None and record[record_key] > 0:
+            new_values_per_state_population = state_population / record[record_key]
+            new_value_per_million = one_million / new_values_per_state_population
+
+        return new_value_per_million
+
+    def get_cases_per_million(self, record, record_key, other):
+        return self.get_value_per_million(record, record_key)
+
+    def get_deaths_per_million(self, record, record_key, other):
+        return self.get_value_per_million(record, record_key)
+
+    def get_tests_per_million(self, record, record_key, other):
+        return self.get_value_per_million(record, record_key)
 
     def fetch(self):
         self.raw_data = []
@@ -251,6 +303,28 @@ class StateTrends:
             request = requests.request('GET', STATE_TREND_URL.format(state), headers=HEADERS)
             response_content = json.loads(request.content.decode('utf-8'))
             self.raw_data.extend(response_content['us_trend_by_Geography'])
+
+        census_population_estimates = census.PopulationEstimates()
+        census_population_estimates.fetch()
+        if census_population_estimates.has_data():
+            self.population_estimates = census_population_estimates.get_data()
+
+        request = requests.request('GET', VACCINE_TREND_URL)
+        request_content = request.content.decode('utf-8')
+        vaccines_raw_data = csv.DictReader(io.StringIO(request_content))
+        self.vaccines_state_trend = {}
+        for vaccine_data in vaccines_raw_data:
+            iso_date = utils.ensure_iso_date(vaccine_data['Date'])
+            if iso_date not in self.vaccines_state_trend:
+                self.vaccines_state_trend[iso_date] = {}
+
+            state = vaccine_data['Location']
+            self.vaccines_state_trend[iso_date][state] = {
+                'Administered': vaccine_data['Administered'],
+                'Distributed': vaccine_data['Distributed'],
+                'Administered_Dose1': vaccine_data['Administered_Dose1_Recip'],
+                'Administered_Dose2': vaccine_data['Series_Complete_Yes']
+            }
 
     def has_data(self):
         return self.raw_data is not None
@@ -273,6 +347,13 @@ class StateTrends:
                 columns = []
                 values = []
 
+                if skip_record(record):
+                    records_processed += 1
+                    utils.log("\rProgress: {} - Records processed: {} of {}"
+                              .format(utils.percentage(records_processed, record_count), records_processed, record_count),
+                              newline=records_processed == record_count)
+                    continue
+
                 for field in self.fields:
                     if 'column' in field:
                         columns.append(field['column'])
@@ -282,6 +363,8 @@ class StateTrends:
                     # Populating the values array
                     if 'data' in field:
                         if isinstance(field['data'], types.FunctionType):
+                            values.append(field['data'].__call__(record, field['field'], record_cache))
+                        elif isinstance(field['data'], types.MethodType):
                             values.append(field['data'].__call__(record, field['field'], record_cache))
                         elif isinstance(field['data'], str):
                             values.append(field['data'])

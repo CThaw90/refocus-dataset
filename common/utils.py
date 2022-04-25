@@ -1,4 +1,5 @@
 import dateparser
+import datetime
 import math
 import sys
 
@@ -30,6 +31,10 @@ def bool_to_int(value):
 def ensure_iso_date(value):
     parsed_date = dateparser.parse(value, settings={'TIMEZONE': 'EST'})
     return parsed_date.isoformat() if parsed_date is not None else None
+
+
+def end_of_year(year):
+    return datetime.datetime(year, 12, 31)
 
 
 def array_equals(list_one, list_two):

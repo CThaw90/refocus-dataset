@@ -35,9 +35,11 @@ if __name__ == '__main__':
 
     modules = [
         {'id': 'census_county_geo_codes', 'module': census.CountyGeoCodes},
+        {'id': 'census_population', 'module': census.Population},
         {'id': 'cdc_hospitalizations', 'module': cdc.Hospitalizations},
         {'id': 'cdc_state_trends', 'module': cdc.StateTrends},
-        {'id': 'kff_state_trends', 'module': kff.StateTrends},
+        # Being replaced by cdc_state_trends modules
+        # {'id': 'kff_state_trends', 'module': kff.StateTrends},
         {'id': 'kff_cases_by_race', 'module': kff.CasesByRace},
         {'id': 'kff_deaths_by_race', 'module': kff.DeathsByRace},
         {'id': 'kff_vaccinations_by_race', 'module': kff.VaccinationsByRace},
