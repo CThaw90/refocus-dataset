@@ -139,6 +139,33 @@ def get_new_cases_seven_day_avg(record, record_key, cache):
     return cases_seven_day_avg['last_seven_records_sum_of_cases'] / 7 if len(last_seven_records) == 7 else 0
 
 
+def cases_percent_change_last_seven_days(record, record_key, cache):
+    namespace_key = 'cases_percent_change_seven_day'
+    cache_key = record['state']
+    if cache_key not in cache:
+        cache[cache_key] = {}
+
+    if namespace_key not in cache[cache_key]:
+        cache[cache_key][namespace_key] = {}
+        # Need to keep track of eight records to calculate the
+        # percentage change of the last record from the first
+        cache[cache_key][namespace_key]['last_eight_records'] = []
+
+    last_eight_records = cache[cache_key][namespace_key]['last_eight_records']
+    if len(last_eight_records) == 8:
+        last_eight_records.pop(0)
+
+    last_eight_records.append(record[record_key])
+
+    percent_change_cases_last_7_days = 0
+    if len(last_eight_records) == 8:
+        first_record_new_cases = last_eight_records[0][record_key]
+        last_record_new_cases = last_eight_records[7][record_key]
+        percent_change_cases_last_7_days = (last_record_new_cases - first_record_new_cases) / first_record_new_cases
+
+    return percent_change_cases_last_7_days
+
+
 def get_new_deaths_seven_day_avg(record, record_key, cache):
     namespace_key = 'deaths_seven_day_avg'
     cache_key = record['state']
@@ -237,14 +264,14 @@ class StateTrends:
             # No longer tracking these data sets because they aren't used in the dashboard and don't make any sense
             {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_mean', 'data': nil},
             {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_plus_mean', 'data': nil},
-            {'field': 'tot_cases', 'column': 'pct_change_weekly_cases_7', 'data': nil},
-            {'field': 'tot_cases', 'column': 'pct_change_weekly_cases_14', 'data': nil},
-            {'field': 'tot_deaths', 'column': 'pct_change_weekly_deaths_7', 'data': nil},
-            {'field': 'tot_deaths', 'column': 'pct_change_weekly_deaths_14', 'data': nil},
+            {'field': 'New_case', 'column': 'pct_change_weekly_cases_7', 'data': nil},
+            {'field': 'New_case', 'column': 'pct_change_weekly_cases_14', 'data': nil},
+            {'field': 'new_death', 'column': 'pct_change_weekly_deaths_7', 'data': nil},
+            {'field': 'new_death', 'column': 'pct_change_weekly_deaths_14', 'data': nil},
             {'field': 'new_test_results_reported', 'column': 'pct_change_weekly_tests_7', 'data': nil},
             {'field': 'new_test_results_reported', 'column': 'pct_change_weekly_tests_14', 'data': nil},
-            {'field': 'percent_positive_7_day', 'column': 'pct_change_positivity_rate_7', 'data': nil},
-            {'field': 'percent_positive_7_day', 'column': 'pct_change_positivity_rate_14', 'data': nil},
+            {'field': 'new_test_results_reported', 'column': 'pct_change_positivity_rate_7', 'data': nil},
+            {'field': 'new_test_results_reported', 'column': 'pct_change_positivity_rate_14', 'data': nil},
 
             {'field': 'tot_cases', 'column': 'population', 'data': self.get_population},
             {'field': 'state', 'column': 'vaccines_distributed', 'data': self.get_vaccines_distributed},
