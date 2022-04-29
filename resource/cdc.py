@@ -139,13 +139,13 @@ def get_new_cases_seven_day_avg(record, record_key, cache):
     return cases_seven_day_avg['last_seven_records_sum_of_cases'] / 7 if len(last_seven_records) == 7 else 0
 
 
-def cases_percent_change_last_n_days(record, record_key, cache, n):
-    namespace_key = 'cases_percent_change_{}_day'.format(n)
-    # Need to keep track of n+1 the number of records to
+def records_percent_change_last_n_days(record, record_key, cache, record_type, n):
+    namespace_key = '{}_percent_change_{}_day'.format(record_type, n)
+    # Need to keep track of n + 1 the number of records to
     # calculate the percentage change of the first day of
     # the new iterative range and the last day of the
     # previous iterative range
-    record_collection_key = 'last_{}_plus_one_records'.format(n)
+    record_collection_key = 'last_n_plus_one_records'
     cache_key = record['state']
     if cache_key not in cache:
         cache[cache_key] = {}
@@ -160,21 +160,22 @@ def cases_percent_change_last_n_days(record, record_key, cache, n):
 
     last_n_plus_one_records.append(record[record_key])
 
-    percent_change_cases_last_n_days = 0
+    record_percent_change_last_n_days = 0
     if len(last_n_plus_one_records) == n + 1:
-        first_record_new_cases = last_n_plus_one_records[0][record_key]
-        last_record_new_cases = last_n_plus_one_records[n][record_key]
-        percent_change_cases_last_n_days = (last_record_new_cases - first_record_new_cases) / first_record_new_cases
+        first_record_value = last_n_plus_one_records[0]
+        last_record_value = last_n_plus_one_records[n]
+        if None not in [first_record_value, last_record_value] and first_record_value > 0:
+            record_percent_change_last_n_days = (last_record_value - first_record_value) / first_record_value
 
-    return percent_change_cases_last_n_days
+    return record_percent_change_last_n_days
 
 
 def cases_percent_change_last_seven_days(record, record_key, cache):
-    return cases_percent_change_last_n_days(record, record_key, cache, 7)
+    return records_percent_change_last_n_days(record, record_key, cache, 'cases', 7)
 
 
 def cases_percent_change_last_fourteen_days(record, record_key, cache):
-    return cases_percent_change_last_n_days(record, record_key, cache, 14)
+    return records_percent_change_last_n_days(record, record_key, cache, 'cases', 14)
 
 
 def get_new_deaths_seven_day_avg(record, record_key, cache):
@@ -202,6 +203,14 @@ def get_new_deaths_seven_day_avg(record, record_key, cache):
     return deaths_seven_day_avg['last_seven_records_sum_of_deaths'] / 7 if len(last_seven_records) == 7 else 0
 
 
+def deaths_percent_change_last_seven_days(record, record_key, cache):
+    return records_percent_change_last_n_days(record, record_key, cache, 'deaths', 7)
+
+
+def deaths_percent_change_last_fourteen_days(record, record_key, cache):
+    return records_percent_change_last_n_days(record, record_key, cache, 'deaths', 14)
+
+
 def get_new_tests_seven_day_avg(record, record_key, cache):
     namespace_key = 'tests_seven_day_avg'
     cache_key = record['state']
@@ -225,6 +234,14 @@ def get_new_tests_seven_day_avg(record, record_key, cache):
         if isinstance(record[record_key], int) else 0
 
     return tests_seven_day_avg['last_seven_records_sum_of_tests'] / 7 if len(last_seven_records) == 7 else 0
+
+
+def tests_percent_change_last_seven_days(record, record_cache, cache):
+    return records_percent_change_last_n_days(record, record_cache, cache, 'tests', 7)
+
+
+def tests_percent_change_last_fourteen_days(record, record_cache, cache):
+    return records_percent_change_last_n_days(record, record_cache, cache, 'tests', 14)
 
 
 def get_positivity_rate(*value):
@@ -272,15 +289,34 @@ class StateTrends:
             {'field': 'new_death', 'column': 'deaths_per_million', 'data': self.get_deaths_per_million},
             {'field': 'new_test_results_reported', 'column': 'tests_per_million', 'data': self.get_tests_per_million},
 
-            # No longer tracking these data sets because they aren't used in the dashboard and don't make any sense
+            {'field': 'New_case', 'column': 'pct_change_weekly_cases_7', 'data': cases_percent_change_last_seven_days},
+            {
+                'field': 'New_case',
+                'column': 'pct_change_weekly_cases_14',
+                'data': cases_percent_change_last_fourteen_days
+            },
+            {
+                'field': 'new_death',
+                'column': 'pct_change_weekly_deaths_7',
+                'data': deaths_percent_change_last_seven_days
+            },
+            {
+                'field': 'new_death',
+                'column': 'pct_change_weekly_deaths_14',
+                'data': deaths_percent_change_last_fourteen_days
+            },
+            {
+                'field': 'new_test_results_reported',
+                'column': 'pct_change_weekly_tests_7',
+                'data': tests_percent_change_last_seven_days
+            },
+            {
+                'field': 'new_test_results_reported',
+                'column': 'pct_change_weekly_tests_14',
+                'data': tests_percent_change_last_fourteen_days
+            },
             {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_mean', 'data': nil},
             {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_plus_mean', 'data': nil},
-            {'field': 'New_case', 'column': 'pct_change_weekly_cases_7', 'data': nil},
-            {'field': 'New_case', 'column': 'pct_change_weekly_cases_14', 'data': nil},
-            {'field': 'new_death', 'column': 'pct_change_weekly_deaths_7', 'data': nil},
-            {'field': 'new_death', 'column': 'pct_change_weekly_deaths_14', 'data': nil},
-            {'field': 'new_test_results_reported', 'column': 'pct_change_weekly_tests_7', 'data': nil},
-            {'field': 'new_test_results_reported', 'column': 'pct_change_weekly_tests_14', 'data': nil},
             {'field': 'new_test_results_reported', 'column': 'pct_change_positivity_rate_7', 'data': nil},
             {'field': 'new_test_results_reported', 'column': 'pct_change_positivity_rate_14', 'data': nil},
 
