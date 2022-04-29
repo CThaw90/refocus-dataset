@@ -139,31 +139,42 @@ def get_new_cases_seven_day_avg(record, record_key, cache):
     return cases_seven_day_avg['last_seven_records_sum_of_cases'] / 7 if len(last_seven_records) == 7 else 0
 
 
-def cases_percent_change_last_seven_days(record, record_key, cache):
-    namespace_key = 'cases_percent_change_seven_day'
+def cases_percent_change_last_n_days(record, record_key, cache, n):
+    namespace_key = 'cases_percent_change_{}_day'.format(n)
+    # Need to keep track of n+1 the number of records to
+    # calculate the percentage change of the first day of
+    # the new iterative range and the last day of the
+    # previous iterative range
+    record_collection_key = 'last_{}_plus_one_records'.format(n)
     cache_key = record['state']
     if cache_key not in cache:
         cache[cache_key] = {}
 
     if namespace_key not in cache[cache_key]:
         cache[cache_key][namespace_key] = {}
-        # Need to keep track of eight records to calculate the
-        # percentage change of the last record from the first
-        cache[cache_key][namespace_key]['last_eight_records'] = []
+        cache[cache_key][namespace_key][record_collection_key] = []
 
-    last_eight_records = cache[cache_key][namespace_key]['last_eight_records']
-    if len(last_eight_records) == 8:
-        last_eight_records.pop(0)
+    last_n_plus_one_records = cache[cache_key][namespace_key][record_collection_key]
+    if len(last_n_plus_one_records) == n + 1:
+        last_n_plus_one_records.pop(0)
 
-    last_eight_records.append(record[record_key])
+    last_n_plus_one_records.append(record[record_key])
 
-    percent_change_cases_last_7_days = 0
-    if len(last_eight_records) == 8:
-        first_record_new_cases = last_eight_records[0][record_key]
-        last_record_new_cases = last_eight_records[7][record_key]
-        percent_change_cases_last_7_days = (last_record_new_cases - first_record_new_cases) / first_record_new_cases
+    percent_change_cases_last_n_days = 0
+    if len(last_n_plus_one_records) == n + 1:
+        first_record_new_cases = last_n_plus_one_records[0][record_key]
+        last_record_new_cases = last_n_plus_one_records[n][record_key]
+        percent_change_cases_last_n_days = (last_record_new_cases - first_record_new_cases) / first_record_new_cases
 
-    return percent_change_cases_last_7_days
+    return percent_change_cases_last_n_days
+
+
+def cases_percent_change_last_seven_days(record, record_key, cache):
+    return cases_percent_change_last_n_days(record, record_key, cache, 7)
+
+
+def cases_percent_change_last_fourteen_days(record, record_key, cache):
+    return cases_percent_change_last_n_days(record, record_key, cache, 14)
 
 
 def get_new_deaths_seven_day_avg(record, record_key, cache):
