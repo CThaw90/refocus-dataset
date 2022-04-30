@@ -316,7 +316,7 @@ class StateTrends:
                 'data': tests_percent_change_last_fourteen_days
             },
             {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_mean', 'data': nil},
-            {'field': 'percent_positive_7_day', 'column': 'positivity_rate_7_day_plus_mean', 'data': nil},
+            {'field': 'percent_positive_7_day', 'column': 'positivity_rate_14_day_mean', 'data': nil},
             {'field': 'new_test_results_reported', 'column': 'pct_change_positivity_rate_7', 'data': nil},
             {'field': 'new_test_results_reported', 'column': 'pct_change_positivity_rate_14', 'data': nil},
 
