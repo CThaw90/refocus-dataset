@@ -2,6 +2,7 @@ import dateparser
 import datetime
 import math
 import sys
+import os
 
 
 def ensure_float(value):
@@ -48,8 +49,15 @@ def array_equals(list_one, list_two):
     return equals
 
 
-def log(message, newline=True):
-    sys.stdout.write("{}{}".format(message, "\n" if newline else ""))
+def log(message, newline=True, show_timestamp=True):
+    timestamp = str(datetime.datetime.now()) if show_timestamp else ''
+    sys.stdout.write('\033[1m{}\033[0m {}{}'.format(timestamp, message, '\n' if newline else ''))
+
+
+def progress(value, total):
+    if os.getenv('DEBUG_PROGRESS') is not None:
+        log("\rProgress: {} - Records processed: {} of {}"
+            .format(percentage(value, total), value, total), newline=value == total, show_timestamp=False)
 
 
 def stringify(array):

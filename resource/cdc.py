@@ -423,9 +423,7 @@ class StateTrends:
 
                 if skip_record(record):
                     records_processed += 1
-                    utils.log("\rProgress: {} - Records processed: {} of {}"
-                              .format(utils.percentage(records_processed, record_count), records_processed, record_count),
-                              newline=records_processed == record_count)
+                    utils.progress(records_processed, record_count)
                     continue
 
                 for field in self.fields:
@@ -452,8 +450,6 @@ class StateTrends:
                 mysql_database.insert(self.table_name, columns, values)
 
                 records_processed += 1
-                utils.log("\rProgress: {} - Records processed: {} of {}"
-                          .format(utils.percentage(records_processed, record_count), records_processed, record_count),
-                          newline=records_processed == record_count)
+                utils.progress(records_processed, record_count)
 
             mysql_database.commit()

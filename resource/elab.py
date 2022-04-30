@@ -107,8 +107,6 @@ class WeeklyEvictions:
                 mysql_database.insert(self.table_name, columns, values)
 
                 records_processed += 1
-                utils.log("\rProgress: {}% - Records processed: {} of {}"
-                          .format(records_processed // progress_threshold, records_processed, record_count),
-                          newline=records_processed == record_count)
+                utils.progress(records_processed, record_count)
 
             mysql_database.commit()
