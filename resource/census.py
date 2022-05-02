@@ -276,9 +276,7 @@ class Population:
                 mysql_database.insert(self.table_name, columns, values)
 
                 records_processed += 1
-                utils.log("\rProgress: {} - Records processed: {} of {}"
-                          .format(utils.percentage(records_processed, record_count), records_processed, record_count),
-                          newline=records_processed == record_count)
+                utils.progress(records_processed, record_count)
 
             mysql_database.commit()
 

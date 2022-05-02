@@ -71,7 +71,6 @@ class Hospitalizations:
 
             records = self.raw_data['datadownload']
             record_count = len(records)
-            progress_threshold = record_count // 100
             records_processed = 0
 
             for record in records:
@@ -94,9 +93,7 @@ class Hospitalizations:
                 mysql_database.insert(self.table_name, columns, values)
 
                 records_processed += 1
-                utils.log("\rProgress: {}% - Records processed: {} of {}"
-                          .format(records_processed // progress_threshold, records_processed, record_count),
-                          newline=records_processed == record_count)
+                utils.progress(records_processed, record_count)
 
             mysql_database.commit()
 
