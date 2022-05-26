@@ -1,5 +1,5 @@
 from common import constants, utils
-from resource import census
+from resource import census, abstract
 from data import database
 
 import datetime
@@ -262,9 +262,10 @@ def nil(*value):
     return 0
 
 
-class StateTrends:
+class StateTrends(abstract.Resource):
 
     def __init__(self):
+        super(StateTrends, self).__init__()
         self.table_name = 'state_trend_data'
         self.population_estimates = None
         self.vaccines_state_trend = None
@@ -324,6 +325,9 @@ class StateTrends:
             {'field': 'state', 'column': 'vaccines_two_dose', 'data': self.get_vaccines_administered_two_dose},
             {'field': 'tot_cases', 'column': 'hotspot', 'data': nil}
         ]
+
+    def skip_record(self, record):
+        return skip_record(record)
 
     def get_vaccine_data_by_key(self, record, state, vaccine_key):
         iso_date = utils.ensure_iso_date(record['date'])
@@ -399,54 +403,3 @@ class StateTrends:
 
     def has_data(self):
         return self.raw_data is not None
-
-    def save(self):
-        mysql_database = database.Database()
-        mysql_database.connect()
-
-        if mysql_database.is_connected():
-            mysql_database.start_transaction()
-
-            records = self.raw_data
-            record_count = len(records)
-            records_processed = 0
-
-            # Used to cache values for additional calculations
-            record_cache = {}
-
-            for record in records:
-                columns = []
-                values = []
-
-                if skip_record(record):
-                    records_processed += 1
-                    utils.progress(records_processed, record_count)
-                    continue
-
-                for field in self.fields:
-                    if 'column' in field:
-                        columns.append(field['column'])
-                    elif 'field' in field:
-                        columns.append(field['field'])
-
-                    # Populating the values array
-                    if 'data' in field:
-                        if isinstance(field['data'], types.FunctionType):
-                            values.append(field['data'].__call__(record, field['field'], record_cache))
-                        elif isinstance(field['data'], types.MethodType):
-                            values.append(field['data'].__call__(record, field['field'], record_cache))
-                        elif isinstance(field['data'], str):
-                            values.append(field['data'])
-
-                    elif 'field' in field:
-                        if isinstance(field['field'], str):
-                            values.append(record[field['field']])
-                        elif isinstance(field['field'], types.FunctionType):
-                            values.append(field['field'].__call__(record))
-
-                mysql_database.insert(self.table_name, columns, values)
-
-                records_processed += 1
-                utils.progress(records_processed, record_count)
-
-            mysql_database.commit()
