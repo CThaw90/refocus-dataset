@@ -22,7 +22,7 @@ class Resource:
         if mysql_database.is_connected():
             mysql_database.start_transaction()
 
-            records = self.raw_data
+            records = list(self.raw_data)
             record_count = len(records)
             records_processed = 0
 
