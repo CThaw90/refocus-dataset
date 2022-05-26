@@ -1,10 +1,8 @@
 from common import constants, utils
 from resource import census, abstract
-from data import database
 
 import datetime
 import requests
-import types
 import json
 import csv
 import io
@@ -37,9 +35,10 @@ def get_mmwr_date(response_object):
     return '{}-{}-{}'.format(date.year, date.month, date.day)
 
 
-class Hospitalizations:
+class Hospitalizations(abstract.Resource):
 
     def __init__(self):
+        super(Hospitalizations, self).__init__()
         self.table_name = 'cdc_hospitalizations'
         self.raw_data = None
         self.fields = [
@@ -57,45 +56,11 @@ class Hospitalizations:
 
     def fetch(self):
         request = requests.request('POST', URL, json=DATA, headers=HEADERS)
-        self.raw_data = json.loads(request.content.decode('utf-8'))
+        response_json = json.loads(request.content.decode('utf-8'))
+        self.raw_data = response_json['datadownload']
 
     def has_data(self):
         return self.raw_data is not None
-
-    def save(self):
-        mysql_database = database.Database()
-        mysql_database.connect()
-
-        if mysql_database.is_connected():
-            mysql_database.start_transaction()
-
-            records = self.raw_data['datadownload']
-            record_count = len(records)
-            records_processed = 0
-
-            for record in records:
-                columns = []
-                values = []
-                for field in self.fields:
-                    if field.__contains__('column'):
-                        columns.append(field['column'])
-                    elif field.__contains__('field'):
-                        if isinstance(field['field'], str):
-                            columns.append(field['field'])
-
-                    # Populating the values array
-                    if field.__contains__('field'):
-                        if isinstance(field['field'], str):
-                            values.append(record[field['field']])
-                        elif isinstance(field['field'], types.FunctionType):
-                            values.append(field['field'].__call__(record))
-
-                mysql_database.insert(self.table_name, columns, values)
-
-                records_processed += 1
-                utils.progress(records_processed, record_count)
-
-            mysql_database.commit()
 
 
 def accumulate_tests(record, record_key, cache):
