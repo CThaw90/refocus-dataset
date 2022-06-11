@@ -8,6 +8,12 @@ import csv
 import io
 
 URL = 'https://www.gstatic.com/covid19/mobility/Region_Mobility_Report_CSVs.zip'
+FILENAME_SET = {
+    '2020_US_Region_Mobility_Report.csv',
+    '2021_US_Region_Mobility_Report.csv',
+    '2022_US_Region_Mobility_Report.csv',
+    '2023_US_Region_Mobility_Report.csv'
+}
 
 
 def ensure_int_or_none(value):
@@ -58,10 +64,13 @@ class MobilityReport:
         ]
 
     def fetch(self):
+        self.raw_data = {}
         request = requests.request('GET', URL)
         zipfile_object = zipfile.ZipFile(io.BytesIO(request.content), mode='r')
-        csv_file_content = zipfile_object.open('2021_US_Region_Mobility_Report.csv')
-        self.raw_data = csv.DictReader(io.StringIO(csv_file_content.read().decode('utf-8')))
+        for file in zipfile_object.filelist:
+            if file.filename in FILENAME_SET:
+                csv_file_content = zipfile_object.open(file.filename)
+                self.raw_data[file.filename] = csv.DictReader(io.StringIO(csv_file_content.read().decode('utf-8')))
 
     def has_data(self):
         return self.raw_data is not None
@@ -73,7 +82,10 @@ class MobilityReport:
         if mysql_database.is_connected():
             mysql_database.start_transaction()
 
-            records = list(self.raw_data)
+            records = []
+            for filename in FILENAME_SET:
+                records += list(self.raw_data[filename]) if filename in self.raw_data else []
+
             record_count = len(records)
             records_processed = 0
 

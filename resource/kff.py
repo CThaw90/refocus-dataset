@@ -226,7 +226,11 @@ class CasesByRace:
                 'column': 'other_percentage_of_population',
                 'data': convert_to_float
             },
-            {'field': '% of Cases with Known Race', 'column': 'known_race_percentage_of_cases', 'data': convert_to_float},
+            {
+                'field': '% of Cases with Known Race',
+                'column': 'known_race_percentage_of_cases',
+                'data': convert_to_float
+            },
             {
                 'field': '% of Cases with Unknown Race',
                 'column': 'unknown_race_percentage_of_cases',
