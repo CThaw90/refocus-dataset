@@ -1,9 +1,8 @@
 from common import constants, utils
-from resource import census
+from resource import census, abstract
 from data import database
 
 import requests
-import types
 import time
 import math
 import json
@@ -21,18 +20,18 @@ FIELDNAMES = [
 ]
 
 
-def ensure_iso_date(record):
-    date_value = record['Date of Declaration']
+def ensure_iso_date(*record):
+    date_value = record[0]['Date of Declaration']
     return utils.ensure_iso_date(date_value) if len(date_value) > 0 else None
 
 
-def get_state(record):
-    return constants.state_abbrev_map[record['State']]
+def get_state(*record):
+    return constants.state_abbrev_map[record[0]['State']]
 
 
 def create_cache_key(record):
-    latitude = record['Latitude'] if record.__contains__('Latitude') else record.get('latitude')
-    longitude = record['Longitude'] if record.__contains__('Longitude') else record.get('longitude')
+    latitude = record['Latitude'] if 'Latitude' in record else record.get('latitude')
+    longitude = record['Longitude'] if 'Longitude' in record else record.get('longitude')
     return '{},{}'.format(latitude, longitude)
 
 
@@ -52,12 +51,21 @@ def escape_quotes(value):
     return value.replace('\'', '\\\'')
 
 
-class RacismDeclarations:
+def should_start_processing(record):
+    start_processing = True
+    for field_name in FIELDNAMES:
+        start_processing = record[field_name] == field_name and start_processing
+
+    return start_processing
+
+
+class RacismDeclarations(abstract.Resource):
 
     def __init__(self):
+        super(RacismDeclarations, self).__init__()
         self.last_api_call_time = None
+        self.start_processing = False
         self.geo_locations = None
-        self.record_cache = None
         self.raw_data = None
         self.table_name = 'apha_map'
         self.fields = [
@@ -70,7 +78,7 @@ class RacismDeclarations:
             {'field': 'Sub-Type', 'column': 'entity_type'},
             {'field': 'Type', 'column': 'entity_geo'},
             {'field': 'Entity', 'column': 'entity_name'},
-            {'field': 'Declaration', 'column': 'link_to_declaration'}
+            {'field': 'Link', 'column': 'link_to_declaration'}
         ]
 
     def fetch(self):
@@ -83,8 +91,10 @@ class RacismDeclarations:
         if census_geo_locations.has_data():
             self.geo_locations = census_geo_locations.get_data()
 
-    def has_data(self):
-        return self.raw_data is not None
+    def skip_record(self, record):
+        should_skip_record = not self.start_processing
+        self.start_processing = self.start_processing if self.start_processing else should_start_processing(record)
+        return should_skip_record
 
     def get_address_by_coordinates(self, latitude, longitude, retry=False):
 
@@ -103,7 +113,7 @@ class RacismDeclarations:
         else:
             return self.get_address_by_coordinates(latitude, longitude, retry=True)
 
-    def get_county(self, record):
+    def get_county(self, record, record_key, record_cache):
         longitude = record['Longitude']
         latitude = record['Latitude']
         cache_key = create_cache_key(record)
@@ -111,18 +121,18 @@ class RacismDeclarations:
         city = 'N/A'
         state = 'N/A'
 
-        if self.record_cache.__contains__(cache_key):
-            county = self.record_cache[cache_key]['county']
+        if cache_key in record_cache:
+            county = record_cache[cache_key][record_key]
         else:
             address = self.get_address_by_coordinates(latitude, longitude)
 
             db = database.Database()
             db.connect()
             county_location_data_fields = ['id', 'county', 'state']
-            county = address['county'] if address.__contains__('county') else county
+            county = address[record_key] if record_key in address else county
             county = county.replace('City and County of ', '')
-            city = address['city'] if address.__contains__('city') else city
-            state = address['state'] if address.__contains__('state') else state
+            city = address['city'] if 'city' in address else city
+            state = address['state'] if 'state' in address else state
             # There is an edge case to how Washington, DC is represented in the api
             if state == 'District of Columbia':
                 state = 'Washington, DC'
@@ -140,7 +150,7 @@ class RacismDeclarations:
                 county_coordinates_data_values = [longitude, latitude, city, county_locations[0][0]]
                 db.insert('county_coordinates_data', county_coordinates_data_columns, county_coordinates_data_values)
                 db.close()
-                self.record_cache[cache_key] = {
+                record_cache[cache_key] = {
                     'longitude': longitude,
                     'latitude': latitude,
                     'city': city,
@@ -154,25 +164,25 @@ class RacismDeclarations:
 
         return county
 
-    def get_city(self, record):
+    def get_city(self, record, record_key, record_cache):
         longitude = record['Longitude']
         latitude = record['Latitude']
         cache_key = create_cache_key(record)
         county = 'N/A'
         city = 'N/A'
         state = 'N/A'
-        if self.record_cache.__contains__(cache_key):
-            city = self.record_cache[cache_key]['city']
+        if cache_key in record_cache:
+            city = record_cache[cache_key][record_key]
         elif self.last_api_call_time is None or diff(time.perf_counter(), self.last_api_call_time) > 1:
             address = self.get_address_by_coordinates(latitude, longitude)
 
             db = database.Database()
             db.connect()
             county_location_data_fields = ['id', 'county', 'state']
-            county = address['county'] if address.__contains__('county') else county
+            county = address['county'] if 'county' in address else county
             county = county.replace('City and County of ', '')
-            city = address['city'] if address.__contains__('city') else city
-            state = address['state'] if address.__contains__('state') else state
+            city = address[record_key] if record_key in address else city
+            state = address['state'] if 'state' in address else state
             # There is an edge case to how Washington, DC is represented in the api
             if state == 'District of Columbia':
                 state = 'Washington, DC'
@@ -190,7 +200,7 @@ class RacismDeclarations:
                 county_coordinates_data_values = [longitude, latitude, city, county_locations[0][0]]
                 db.insert('county_coordinates_data', county_coordinates_data_columns, county_coordinates_data_values)
                 db.close()
-                self.record_cache[cache_key] = {
+                record_cache[cache_key] = {
                     'longitude': longitude,
                     'latitude': latitude,
                     'city': city,
@@ -204,51 +214,10 @@ class RacismDeclarations:
 
         return city
 
-    def save(self):
-        mysql_database = database.Database()
-        mysql_database.connect()
+    def save(self, record_cache=None):
+        record_cache = {}
+        for location in self.geo_locations:
+            cache_key = create_cache_key(location)
+            record_cache[cache_key] = location
 
-        if mysql_database.is_connected():
-
-            records = list(self.raw_data)
-            record_count = len(records)
-            self.record_cache = {}
-            records_processed = 0
-            start_processing = False
-
-            for location in self.geo_locations:
-                cache_key = create_cache_key(location)
-                self.record_cache[cache_key] = location
-
-            mysql_database.start_transaction()
-
-            for record in records:
-                records_processed += 1
-                columns = []
-                values = []
-
-                if not start_processing:
-                    start_processing = should_start_processing(record)
-                    continue
-
-                for field in self.fields:
-                    if field.__contains__('column'):
-                        columns.append(field['column'])
-                    elif field.__contains__('field'):
-                        columns.append(field['field'])
-
-                    # Populating the values array
-                    if field.__contains__('data'):
-                        if field['field'] in ('city', 'county') and isinstance(field['data'], types.MethodType):
-                            values.append(field['data'].__call__(record))
-                        elif isinstance(field['data'], types.FunctionType):
-                            values.append(field['data'].__call__(record))
-
-                    elif field.__contains__('field'):
-                        values.append(record[field['field']])
-
-                mysql_database.insert(self.table_name, columns, values)
-
-                utils.progress(records_processed, record_count)
-
-            mysql_database.commit()
+        abstract.Resource.save(self, record_cache)

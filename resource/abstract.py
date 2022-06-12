@@ -15,7 +15,10 @@ class Resource:
     def skip_record(self, record):
         return self.skipping and record is not None
 
-    def save(self):
+    def has_data(self):
+        return self.raw_data is not None
+
+    def save(self, record_cache=None):
         mysql_database = database.Database()
         mysql_database.connect()
 
@@ -27,7 +30,8 @@ class Resource:
             records_processed = 0
 
             # Used to cache values for additional calculations
-            record_cache = {}
+            if record_cache is None:
+                record_cache = {}
 
             for record in records:
                 columns = []
