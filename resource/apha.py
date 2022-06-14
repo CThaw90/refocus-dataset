@@ -78,7 +78,8 @@ class RacismDeclarations(abstract.Resource):
             {'field': 'Sub-Type', 'column': 'entity_type'},
             {'field': 'Type', 'column': 'entity_geo'},
             {'field': 'Entity', 'column': 'entity_name'},
-            {'field': 'Link', 'column': 'link_to_declaration'}
+            {'field': 'Link', 'column': 'link_to_declaration'},
+            {'field': 'Declaration', 'column': 'declaration'}
         ]
 
     def fetch(self):
