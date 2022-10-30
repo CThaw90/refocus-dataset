@@ -236,7 +236,7 @@ class StateTrends(abstract.Resource):
         self.vaccines_state_trend = None
         self.raw_data = None
         self.fields = [
-            {'field': 'state'},
+            {'field': 'geography'},
             {'field': 'date', 'data': ensure_iso_date},
             {'field': 'tot_cases', 'column': 'cases'},
             {'field': 'tot_deaths', 'column': 'deaths'},
